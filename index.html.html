@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synapse — Emergent Multi-Agent Society</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void-950:#0e1120;
+    --void-900:#161a30;
+    --void-800:#1f2542;
+    --void-700:#2a3156;
+    --mist-100:#e9ebf5;
+    --mist-300:#c2c6de;
+    --mist-500:#8b90b3;
+    --mist-700:#5b6089;
+
+    --trust-cyan:#5FE3CC;
+    --trust-cyan-dim:#2e8f81;
+    --alliance-violet:#a394ff;
+    --alliance-violet-dim:#4f4590;
+    --conflict-amber:#f0a75c;
+    --conflict-amber-dim:#8a5f2f;
+    --danger-rose:#ff6f81;
+    --danger-rose-dim:#8a3540;
+
+    --p-cooperative:#5FE3CC;
+    --p-diplomatic:#a394ff;
+    --p-greedy:#f0a75c;
+    --p-aggressive:#ff6f81;
+    --p-cautious:#8b90b3;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:
+      radial-gradient(1200px 700px at 78% -10%, rgba(163,148,255,0.10), transparent 60%),
+      radial-gradient(900px 600px at -10% 110%, rgba(95,227,204,0.08), transparent 60%),
+      var(--void-950);
+    color:var(--mist-100);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  ::selection{background:var(--alliance-violet-dim);color:#fff;}
+
+  .app{max-width:1400px;margin:0 auto;padding:22px 26px 40px;}
+
+  /* ---------------- Header ---------------- */
+  header{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    padding-bottom:16px;margin-bottom:18px;border-bottom:1px solid var(--void-700);
+    flex-wrap:wrap;gap:12px;
+  }
+  .brand{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;}
+  .brand h1{
+    font-family:'Sora', sans-serif;font-weight:700;font-size:26px;letter-spacing:0.02em;
+    margin:0;color:var(--mist-100);
+  }
+  .brand h1 .dot{color:var(--trust-cyan);}
+  .brand .tagline{font-size:13px;color:var(--mist-500);max-width:440px;line-height:1.4;}
+  .tick-readout{
+    font-family:'JetBrains Mono', monospace;font-size:13px;color:var(--mist-300);
+    background:var(--void-900);border:1px solid var(--void-700);border-radius:6px;
+    padding:8px 14px;text-align:right;
+  }
+  .tick-readout b{color:var(--trust-cyan);font-size:16px;}
+  .tick-readout .crisis-flag{color:var(--danger-rose);font-weight:600;}
+
+  /* ---------------- Layout ---------------- */
+  .layout{display:grid;grid-template-columns: 1fr 380px;gap:20px;align-items:start;}
+  @media (max-width: 980px){ .layout{grid-template-columns:1fr;} }
+
+  .panel{
+    background:var(--void-900);border:1px solid var(--void-700);border-radius:10px;
+    padding:18px;
+  }
+  .panel-title{
+    font-family:'Sora', sans-serif;font-weight:600;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;
+    color:var(--mist-500);margin:0 0 12px;display:flex;align-items:center;justify-content:space-between;
+  }
+
+  /* ---------------- Graph ---------------- */
+  .graph-wrap{position:relative;}
+  #graph{width:100%;height:auto;display:block;border-radius:8px;background:
+    radial-gradient(circle at 50% 50%, rgba(163,148,255,0.05), transparent 65%), var(--void-950);
+  }
+  .edge{ stroke-linecap:round; transition:stroke 0.5s ease, stroke-width 0.5s ease, opacity 0.5s ease; }
+  .edge.alliance-edge{ stroke:var(--alliance-violet); stroke-width:3.4; opacity:0.9; filter:drop-shadow(0 0 5px rgba(163,148,255,0.55)); }
+  @keyframes edgePulse{ 0%{ filter:brightness(1) drop-shadow(0 0 0 transparent); } 45%{ filter:brightness(2.4) drop-shadow(0 0 8px currentColor); } 100%{ filter:brightness(1) drop-shadow(0 0 0 transparent); } }
+  .edge.pulsing{ animation: edgePulse 750ms ease; }
+
+  .node-ring{ transition: r 0.6s ease, stroke 0.4s ease; fill:none; stroke-width:3; }
+  .node-body{ fill:var(--void-900); stroke:var(--void-800); stroke-width:1; transition:r 0.6s ease; }
+  .node-label{ font-family:'Sora', sans-serif; font-weight:600; font-size:12px; fill:var(--mist-100); text-anchor:middle; pointer-events:none; }
+  .node-sub{ font-family:'JetBrains Mono', monospace; font-size:9px; fill:var(--mist-500); text-anchor:middle; pointer-events:none; }
+  .node.starving .node-ring{ animation: starvePulse 1.4s ease-in-out infinite; }
+  @keyframes starvePulse{ 0%,100%{ stroke:var(--danger-rose); } 50%{ stroke:var(--conflict-amber); } }
+
+  .crisis-shock{
+    position:absolute; inset:0; border-radius:8px; pointer-events:none;
+    box-shadow: inset 0 0 0 0 rgba(255,111,129,0);
+  }
+  .crisis-shock.active{ animation: shockwave 1.1s ease-out; }
+  @keyframes shockwave{
+    0%{ box-shadow: inset 0 0 0 0 rgba(255,111,129,0.55); }
+    100%{ box-shadow: inset 0 0 120px 20px rgba(255,111,129,0); }
+  }
+
+  .legend{
+    position:absolute; top:14px; left:14px; background:rgba(14,17,32,0.82);
+    border:1px solid var(--void-700); border-radius:8px; padding:10px 12px;
+    font-size:10.5px; color:var(--mist-500); backdrop-filter:blur(3px);
+  }
+  .legend-row{display:flex;align-items:center;gap:6px;margin:3px 0;}
+  .legend-swatch{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .legend-line{width:16px;height:2px;flex-shrink:0;}
+
+  /* ---------------- Controls ---------------- */
+  .controls{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;
+    padding-top:14px;border-top:1px solid var(--void-700);
+  }
+  button{
+    font-family:'Inter', sans-serif;font-weight:600;font-size:12.5px;
+    border-radius:7px;border:1px solid var(--void-700);cursor:pointer;
+    padding:9px 15px;transition:all 0.15s;background:var(--void-800);color:var(--mist-100);
+  }
+  button:hover{border-color:var(--mist-700);}
+  button:focus-visible{outline:2px solid var(--trust-cyan);outline-offset:2px;}
+  button:disabled{opacity:0.4;cursor:default;}
+  button.primary{background:var(--trust-cyan);color:#08201c;border-color:var(--trust-cyan);}
+  button.primary:hover{background:#7cebd8;}
+  button.warn{background:transparent;color:var(--danger-rose);border-color:var(--danger-rose-dim);}
+  button.warn:hover{background:rgba(255,111,129,0.1);}
+  button.ghost{background:transparent;}
+
+  .speed-control{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mist-500);}
+  .speed-control input[type=range]{accent-color:var(--trust-cyan);}
+  .spacer{flex:1;}
+
+  /* ---------------- Stats bar ---------------- */
+  .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px;}
+  .stat-box{background:var(--void-800);border:1px solid var(--void-700);border-radius:7px;padding:9px 6px;text-align:center;}
+  .stat-box .n{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:17px;color:var(--mist-100);}
+  .stat-box .l{font-size:9.5px;letter-spacing:0.05em;text-transform:uppercase;color:var(--mist-500);margin-top:2px;}
+  .stat-box.trade .n{color:var(--trust-cyan);}
+  .stat-box.alliance .n{color:var(--alliance-violet);}
+  .stat-box.betrayal .n{color:var(--danger-rose);}
+  .stat-box.raid .n{color:var(--conflict-amber);}
+
+  /* ---------------- Sidebar: roster ---------------- */
+  .sidebar{display:flex;flex-direction:column;gap:16px;}
+  .roster-list{display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;padding-right:2px;}
+  .agent-card{
+    background:var(--void-800);border:1px solid var(--void-700);border-radius:8px;padding:10px 12px;
+  }
+  .agent-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+  .agent-name{font-family:'Sora',sans-serif;font-weight:600;font-size:13px;display:flex;align-items:center;gap:7px;}
+  .agent-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .agent-badge{
+    font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.04em;
+    padding:2px 6px;border-radius:4px;color:var(--mist-500);background:var(--void-900);
+  }
+  .bars{display:flex;flex-direction:column;gap:4px;}
+  .bar-row{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--mist-500);}
+  .bar-track{flex:1;height:5px;background:var(--void-900);border-radius:100px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:100px;transition:width 0.5s ease;}
+  .bar-fill.gold{background:#e8c468;}
+  .bar-fill.food{background:var(--trust-cyan);}
+  .bar-fill.tech{background:var(--alliance-violet);}
+  .bar-val{width:22px;text-align:right;flex-shrink:0;}
+
+  /* ---------------- Event log ---------------- */
+  .log-list{list-style:none;margin:0;padding:0;max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;}
+  .log-item{
+    font-size:12px;line-height:1.4;padding:7px 10px;border-radius:6px;background:var(--void-800);
+    border-left:3px solid var(--mist-700);color:var(--mist-300);
+  }
+  .log-item .tick-tag{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--mist-700);margin-right:6px;}
+  .log-item.trade{border-color:var(--trust-cyan);}
+  .log-item.alliance{border-color:var(--alliance-violet);}
+  .log-item.betrayal{border-color:var(--danger-rose);color:#ffd7dc;}
+  .log-item.raid{border-color:var(--conflict-amber);}
+  .log-item.raid-failed{border-color:var(--conflict-amber-dim);}
+  .log-item.broker{border-color:var(--alliance-violet-dim);}
+  .log-item.crisis{border-color:var(--danger-rose);color:var(--danger-rose);font-weight:600;}
+  .log-item.refusal{border-color:var(--mist-700);opacity:0.75;}
+  @keyframes logIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+  .log-item.fresh{animation:logIn 0.3s ease;}
+
+  .empty-log{color:var(--mist-700);font-size:12px;text-align:center;padding:20px 0;}
+
+  /* ---------------- Report modal ---------------- */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(10,12,22,0.72);backdrop-filter:blur(2px);
+    display:none;align-items:center;justify-content:center;z-index:50;padding:20px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    background:var(--void-900);border:1px solid var(--void-700);border-radius:12px;
+    padding:26px 28px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;
+  }
+  .modal h2{font-family:'Sora',sans-serif;font-size:20px;margin:0 0 4px;}
+  .modal .modal-sub{font-size:12.5px;color:var(--mist-500);margin:0 0 18px;font-family:'JetBrains Mono',monospace;}
+  .faction-block{margin-bottom:14px;}
+  .faction-block .f-label{font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--mist-500);margin-bottom:6px;}
+  .chip-row{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{
+    font-family:'JetBrains Mono',monospace;font-size:11.5px;background:var(--void-800);
+    border:1px solid var(--void-700);border-radius:100px;padding:4px 11px;
+  }
+  .report-facts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0;}
+  .fact{background:var(--void-800);border-radius:7px;padding:10px 12px;}
+  .fact .fk{font-size:10px;color:var(--mist-500);text-transform:uppercase;letter-spacing:0.05em;}
+  .fact .fv{font-family:'Sora',sans-serif;font-weight:600;font-size:14px;margin-top:2px;}
+  .modal-close{width:100%;margin-top:6px;}
+
+  footer{margin-top:26px;font-size:11.5px;color:var(--mist-700);text-align:center;}
+
+  @media (prefers-reduced-motion: reduce){
+    .edge, .node-ring, .node-body, .bar-fill { transition:none !important; }
+    .edge.pulsing, .node.starving .node-ring, .crisis-shock.active, .log-item.fresh { animation:none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="brand">
+      <h1>SYNAPSE<span class="dot">.</span></h1>
+      <div class="tagline">A live society of AI agents — each with its own personality — that trades, forms alliances, and betrays entirely on its own. No script, no scenario: what happens is emergent.</div>
+    </div>
+    <div class="tick-readout">
+      TICK <b id="tickNum">0</b><br>
+      <span id="crisisFlag"></span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- ============ GRAPH + CONTROLS ============ -->
+    <div class="panel">
+      <p class="panel-title">Live relationship network<span id="agentCountLabel"></span></p>
+      <div class="graph-wrap">
+        <svg id="graph" viewBox="0 0 640 560" xmlns="http://www.w3.org/2000/svg">
+          <g id="edgesLayer"></g>
+          <g id="nodesLayer"></g>
+        </svg>
+        <div class="crisis-shock" id="crisisShock"></div>
+        <div class="legend">
+          <div class="legend-row"><span class="legend-swatch" style="background:var(--p-cooperative)"></span>Cooperative</div>
+          <div class="legend-row"><span class="legend-swatch" style="background:var(--p-diplomatic)"></span>Diplomatic</div>
+          <div class="legend-row"><span class="legend-swatch" style="background:var(--p-greedy)"></span>Greedy</div>
+          <div class="legend-row"><span class="legend-swatch" style="background:var(--p-aggressive)"></span>Aggressive</div>
+          <div class="legend-row"><span class="legend-swatch" style="background:var(--p-cautious)"></span>Cautious</div>
+          <div class="legend-row" style="margin-top:6px;"><span class="legend-line" style="background:var(--alliance-violet)"></span>Alliance</div>
+          <div class="legend-row"><span class="legend-line" style="background:var(--trust-cyan)"></span>Trust</div>
+          <div class="legend-row"><span class="legend-line" style="background:var(--danger-rose)"></span>Distrust</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="primary" id="playPauseBtn">▶ Play</button>
+        <button id="stepBtn">Step →</button>
+        <button class="ghost" id="resetBtn">↺ Reset</button>
+        <div class="speed-control">
+          Speed <input type="range" id="speedSlider" min="1" max="6" value="3">
+          <span id="speedLabel">3×</span>
+        </div>
+        <div class="spacer"></div>
+        <button class="warn" id="crisisBtn">⚠ Inject Crisis</button>
+        <button id="reportBtn">📊 Society Report</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box trade"><div class="n" id="statTrades">0</div><div class="l">Trades</div></div>
+        <div class="stat-box alliance"><div class="n" id="statAlliances">0</div><div class="l">Alliances</div></div>
+        <div class="stat-box betrayal"><div class="n" id="statBetrayals">0</div><div class="l">Betrayals</div></div>
+        <div class="stat-box raid"><div class="n" id="statRaids">0</div><div class="l">Raids</div></div>
+        <div class="stat-box"><div class="n" id="statBrokered">0</div><div class="l">Mediated</div></div>
+      </div>
+    </div>
+
+    <!-- ============ SIDEBAR ============ -->
+    <div class="sidebar">
+      <div class="panel">
+        <p class="panel-title">Agent roster</p>
+        <div class="roster-list" id="rosterList"></div>
+      </div>
+      <div class="panel">
+        <p class="panel-title">Event feed</p>
+        <ul class="log-list" id="logList" style="max-height:420px;"><li class="empty-log">The society hasn't done anything yet. Press Play.</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <footer>Synapse — a self-contained multi-agent simulation. Every trade, alliance, and betrayal is computed live in your browser.</footer>
+</div>
+
+<!-- ============ REPORT MODAL ============ -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2>Society Report</h2>
+    <p class="modal-sub" id="modalTick">TICK 0</p>
+
+    <div class="faction-block">
+      <div class="f-label">Factions detected</div>
+      <div id="factionList"></div>
+    </div>
+
+    <div class="report-facts">
+      <div class="fact"><div class="fk">Wealthiest</div><div class="fv" id="rWealthiest">—</div></div>
+      <div class="fact"><div class="fk">Most trusted</div><div class="fv" id="rTrusted">—</div></div>
+      <div class="fact"><div class="fk">Least trusted</div><div class="fv" id="rDistrusted">—</div></div>
+      <div class="fact"><div class="fk">Total events</div><div class="fv" id="rEvents">—</div></div>
+    </div>
+
+    <button class="modal-close" id="modalClose">Close</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   ENGINE — verified simulation logic (see engine.js for tests)
+   ============================================================ */
+const PERSONALITIES = ['Cooperative', 'Greedy', 'Aggressive', 'Diplomatic', 'Cautious'];
+const AGENT_TEMPLATES = [
+  { name: 'Aria',  personality: 'Diplomatic' },
+  { name: 'Kessa', personality: 'Cooperative' },
+  { name: 'Thorne',personality: 'Aggressive' },
+  { name: 'Vela',  personality: 'Greedy' },
+  { name: 'Orin',  personality: 'Cautious' },
+  { name: 'Sable', personality: 'Aggressive' },
+  { name: 'Juno',  personality: 'Cooperative' },
+];
+const RESOURCES = ['gold', 'food', 'tech'];
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function pairKey(a, b) { return a < b ? `${a}-${b}` : `${b}-${a}`; }
+function randInt(lo, hi) { return Math.floor(lo + Math.random() * (hi - lo + 1)); }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function weightedChoice(entries) {
+  const total = entries.reduce((s, [, w]) => s + Math.max(0, w), 0);
+  if (total <= 0) return entries.length ? entries[0][0] : null;
+  let r = Math.random() * total;
+  for (const [key, w] of entries) {
+    r -= Math.max(0, w);
+    if (r <= 0) return key;
+  }
+  return entries[entries.length - 1][0];
+}
+
+function createInitialState(numAgents = 7, seedResources = true) {
+  const templates = AGENT_TEMPLATES.slice(0, numAgents);
+  const agents = templates.map((t, i) => ({
+    id: i, name: t.name, personality: t.personality,
+    resources: seedResources
+      ? { gold: randInt(20, 60), food: randInt(20, 60), tech: randInt(20, 60) }
+      : { gold: 40, food: 40, tech: 40 },
+    angle: (2 * Math.PI * i) / templates.length,
+  }));
+  const trust = {};
+  for (let i = 0; i < agents.length; i++) for (let j = i + 1; j < agents.length; j++) trust[pairKey(i, j)] = randInt(0, 20);
+  return { tick: 0, agents, trust, alliances: new Set(), log: [],
+    stats: { trades: 0, betrayals: 0, alliances: 0, raids: 0, brokered: 0, refusals: 0 },
+    crisisTicksRemaining: 0 };
+}
+
+function getTrust(state, a, b) { if (a === b) return 100; return state.trust[pairKey(a, b)] ?? 0; }
+function setTrust(state, a, b, value) { state.trust[pairKey(a, b)] = clamp(value, -100, 100); }
+function adjustTrust(state, a, b, delta) { setTrust(state, a, b, getTrust(state, a, b) + delta); }
+function isAllied(state, a, b) { return state.alliances.has(pairKey(a, b)); }
+function alliesOf(state, id) {
+  const result = [];
+  for (const key of state.alliances) { const [a, b] = key.split('-').map(Number); if (a === id) result.push(b); else if (b === id) result.push(a); }
+  return result;
+}
+function totalResources(agent) { return agent.resources.gold + agent.resources.food + agent.resources.tech; }
+function mostAbundant(agent) { return RESOURCES.reduce((best, r) => (agent.resources[r] > agent.resources[best] ? r : best), RESOURCES[0]); }
+function mostAbundantExcluding(agent, exclude) { const options = RESOURCES.filter(r => r !== exclude); return options.reduce((best, r) => (agent.resources[r] > agent.resources[best] ? r : best), options[0]); }
+function mostNeeded(agent) { return RESOURCES.reduce((worst, r) => (agent.resources[r] < agent.resources[worst] ? r : worst), RESOURCES[0]); }
+function pushLog(state, type, text, ids = []) { state.log.unshift({ tick: state.tick, type, text, ids }); if (state.log.length > 60) state.log.length = 60; }
+function otherAgents(state, id) { return state.agents.filter(a => a.id !== id); }
+function bestTrustPartner(state, id, excludeIds = []) {
+  let best = null, bestTrust = -Infinity;
+  for (const other of otherAgents(state, id)) { if (excludeIds.includes(other.id)) continue; const t = getTrust(state, id, other.id); if (t > bestTrust) { bestTrust = t; best = other; } }
+  return best ? { agent: best, trust: bestTrust } : null;
+}
+
+function doTrade(state, agent) {
+  const partnerInfo = bestTrustPartner(state, agent.id);
+  if (!partnerInfo) return false;
+  const { agent: partner, trust } = partnerInfo;
+  if (trust < -50) return false;
+  const give = mostAbundant(agent);
+  let partnerGive = mostAbundant(partner);
+  if (partnerGive === give) partnerGive = mostAbundantExcluding(partner, give);
+  if (trust < -10) { adjustTrust(state, agent.id, partner.id, -1); state.stats.refusals++; pushLog(state, 'refusal', `${partner.name} refuses to trade with ${agent.name} (low trust).`, [agent.id, partner.id]); return true; }
+  const amount = Math.min(6, agent.resources[give], 6);
+  const amount2 = Math.min(6, partner.resources[partnerGive], 6);
+  if (amount <= 0 || amount2 <= 0) return false;
+  agent.resources[give] -= amount; partner.resources[give] += amount;
+  partner.resources[partnerGive] -= amount2; agent.resources[partnerGive] += amount2;
+  adjustTrust(state, agent.id, partner.id, 3);
+  state.stats.trades++;
+  pushLog(state, 'trade', `${agent.name} trades ${amount} ${give} with ${partner.name} for ${amount2} ${partnerGive}.`, [agent.id, partner.id]);
+  return true;
+}
+
+function doFormAlliance(state, agent) {
+  const candidate = otherAgents(state, agent.id).filter(o => !isAllied(state, agent.id, o.id))
+    .map(o => ({ o, t: getTrust(state, agent.id, o.id) })).sort((a, b) => b.t - a.t)[0];
+  if (!candidate || candidate.t < 25) return false;
+  state.alliances.add(pairKey(agent.id, candidate.o.id));
+  adjustTrust(state, agent.id, candidate.o.id, 10);
+  state.stats.alliances++;
+  pushLog(state, 'alliance', `${agent.name} and ${candidate.o.name} form an alliance.`, [agent.id, candidate.o.id]);
+  return true;
+}
+
+function doBetray(state, agent) {
+  const allies = alliesOf(state, agent.id);
+  if (allies.length === 0) return false;
+  const targetId = pick(allies);
+  const target = state.agents[targetId];
+  const steal = mostAbundant(target);
+  const amount = Math.floor(target.resources[steal] * 0.3);
+  target.resources[steal] -= amount; agent.resources[steal] += amount;
+  state.alliances.delete(pairKey(agent.id, targetId));
+  setTrust(state, agent.id, targetId, -60);
+  state.stats.betrayals++;
+  pushLog(state, 'betrayal', `${agent.name} betrays ${target.name}, seizing ${amount} ${steal}!`, [agent.id, targetId]);
+  for (const other of state.agents) if (other.id !== agent.id && other.id !== targetId) adjustTrust(state, agent.id, other.id, -5);
+  return true;
+}
+
+function doRaid(state, agent) {
+  const targets = otherAgents(state, agent.id).filter(o => !isAllied(state, agent.id, o.id));
+  if (targets.length === 0) return false;
+  const target = targets.reduce((weakest, o) => totalResources(o) < totalResources(weakest) ? o : weakest, targets[0]);
+  const attackerPower = totalResources(agent) + randInt(0, 20);
+  const defenderPower = totalResources(target) + randInt(0, 20);
+  state.stats.raids++;
+  if (attackerPower > defenderPower) {
+    const steal = mostAbundant(target);
+    const amount = Math.floor(target.resources[steal] * 0.25);
+    target.resources[steal] = Math.max(0, target.resources[steal] - amount);
+    agent.resources[steal] += amount;
+    setTrust(state, agent.id, target.id, -80);
+    pushLog(state, 'raid', `${agent.name} raids ${target.name} and seizes ${amount} ${steal}!`, [agent.id, target.id]);
+    for (const other of state.agents) if (other.id !== agent.id && other.id !== target.id) adjustTrust(state, agent.id, other.id, -3);
+  } else {
+    pushLog(state, 'raid-failed', `${agent.name}'s raid on ${target.name} is repelled.`, [agent.id, target.id]);
+    adjustTrust(state, agent.id, target.id, -10);
+  }
+  return true;
+}
+
+function doBroker(state, agent) {
+  const others = otherAgents(state, agent.id);
+  if (others.length < 2) return false;
+  let bestPair = null, bestScore = Infinity;
+  for (let i = 0; i < others.length; i++) for (let j = i + 1; j < others.length; j++) {
+    const t = getTrust(state, others[i].id, others[j].id);
+    if (t > -30 && t < 40 && Math.abs(t - 5) < bestScore) { bestScore = Math.abs(t - 5); bestPair = [others[i], others[j]]; }
+  }
+  if (!bestPair) return false;
+  adjustTrust(state, bestPair[0].id, bestPair[1].id, 8);
+  state.stats.brokered++;
+  pushLog(state, 'broker', `${agent.name} mediates between ${bestPair[0].name} and ${bestPair[1].name}.`, [bestPair[0].id, bestPair[1].id]);
+  return true;
+}
+
+function doHoard(state, agent) { const r = mostNeeded(agent); agent.resources[r] += randInt(1, 3); return true; }
+
+function baseWeights(personality) {
+  switch (personality) {
+    case 'Cooperative': return { trade: 42, alliance: 34, betray: 2, raid: 1, broker: 16, hoard: 5 };
+    case 'Greedy':       return { trade: 38, alliance: 12, betray: 18, raid: 6,  broker: 2,  hoard: 24 };
+    case 'Aggressive':   return { trade: 14, alliance: 8,  betray: 14, raid: 20, broker: 2,  hoard: 42 };
+    case 'Diplomatic':   return { trade: 22, alliance: 30, betray: 1,  raid: 0.5,broker: 42, hoard: 4.5 };
+    case 'Cautious':     return { trade: 18, alliance: 14, betray: 3,  raid: 2,  broker: 8,  hoard: 55 };
+    default:              return { trade: 20, alliance: 20, betray: 10, raid: 10, broker: 10, hoard: 30 };
+  }
+}
+
+function decideAndAct(state, agent) {
+  const weights = { ...baseWeights(agent.personality) };
+  if (agent.resources.food < 10) { weights.trade *= 1.6; weights.raid *= 1.25; weights.hoard *= 0.6; }
+  const allies = alliesOf(state, agent.id);
+  if (allies.length === 0) { weights.betray = 0; }
+  else {
+    const avgAllyTrust = allies.reduce((s, id) => s + getTrust(state, agent.id, id), 0) / allies.length;
+    let loyaltyFactor;
+    if (avgAllyTrust >= 70) loyaltyFactor = 0.08; else if (avgAllyTrust >= 45) loyaltyFactor = 0.35; else loyaltyFactor = 1.1;
+    weights.betray *= loyaltyFactor;
+  }
+  if (state.agents.length <= 1) return;
+  const action = weightedChoice([['trade', weights.trade],['alliance', weights.alliance],['betray', weights.betray],['raid', weights.raid],['broker', weights.broker],['hoard', weights.hoard]]);
+  let acted = false;
+  switch (action) {
+    case 'trade': acted = doTrade(state, agent); break;
+    case 'alliance': acted = doFormAlliance(state, agent); break;
+    case 'betray': acted = doBetray(state, agent); break;
+    case 'raid': acted = doRaid(state, agent); break;
+    case 'broker': acted = doBroker(state, agent); break;
+    default: acted = false;
+  }
+  if (!acted) doHoard(state, agent);
+}
+
+function upkeep(state) {
+  const foodDrain = state.crisisTicksRemaining > 0 ? 4 : 1;
+  for (const agent of state.agents) {
+    agent.resources.food = Math.max(0, agent.resources.food - foodDrain);
+    const need = mostNeeded(agent);
+    agent.resources[need] += 1;
+    for (const r of RESOURCES) agent.resources[r] = clamp(agent.resources[r], 0, 999);
+  }
+  if (state.crisisTicksRemaining > 0) state.crisisTicksRemaining--;
+}
+
+function tick(state) {
+  state.tick++;
+  const order = state.agents.map(a => a.id);
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  for (const id of order) decideAndAct(state, state.agents[id]);
+  upkeep(state);
+  return state;
+}
+
+function injectCrisis(state) {
+  state.crisisTicksRemaining = 8;
+  for (const agent of state.agents) agent.resources.food = Math.floor(agent.resources.food * 0.4);
+  pushLog(state, 'crisis', `⚠ A resource crisis strikes — food reserves collapse across the society.`);
+  return state;
+}
+
+function findFactions(state, threshold = 35) {
+  const n = state.agents.length;
+  const visited = new Array(n).fill(false);
+  const factions = [];
+  for (let start = 0; start < n; start++) {
+    if (visited[start]) continue;
+    const queue = [start]; visited[start] = true; const component = [];
+    while (queue.length) {
+      const cur = queue.pop(); component.push(cur);
+      for (let other = 0; other < n; other++) {
+        if (other === cur || visited[other]) continue;
+        if (getTrust(state, cur, other) >= threshold || isAllied(state, cur, other)) { visited[other] = true; queue.push(other); }
+      }
+    }
+    factions.push(component);
+  }
+  return factions;
+}
+
+function generateReport(state) {
+  const factions = findFactions(state);
+  const factionDescriptions = factions.map((f, idx) => ({ label: f.length > 1 ? `Faction ${idx + 1}` : 'Independent', members: f.map(id => state.agents[id].name) }));
+  const wealthiest = state.agents.reduce((best, a) => totalResources(a) > totalResources(best) ? a : best, state.agents[0]);
+  const trustScores = state.agents.map(a => { const scores = otherAgents(state, a.id).map(o => getTrust(state, a.id, o.id)); const avg = scores.reduce((s, v) => s + v, 0) / (scores.length || 1); return { agent: a, avg }; });
+  const mostTrusted = trustScores.reduce((best, cur) => (cur.avg > best.avg ? cur : best), trustScores[0]);
+  const leastTrusted = trustScores.reduce((worst, cur) => (cur.avg < worst.avg ? cur : worst), trustScores[0]);
+  return { tick: state.tick, factions: factionDescriptions, wealthiest: wealthiest.name, mostTrusted: mostTrusted.agent.name, leastTrusted: leastTrusted.agent.name, stats: { ...state.stats } };
+}
+
+/* ============================================================
+   RENDERING + UI
+   ============================================================ */
+const CENTER_X = 320, CENTER_Y = 275, RADIUS = 200;
+const PERSONALITY_COLOR = { Cooperative:'var(--p-cooperative)', Diplomatic:'var(--p-diplomatic)', Greedy:'var(--p-greedy)', Aggressive:'var(--p-aggressive)', Cautious:'var(--p-cautious)' };
+const PERSONALITY_HEX = { Cooperative:'#5FE3CC', Diplomatic:'#a394ff', Greedy:'#f0a75c', Aggressive:'#ff6f81', Cautious:'#8b90b3' };
+
+let state = createInitialState(7);
+let playing = false;
+let intervalHandle = null;
+let ticksPerSecond = 3;
+
+const edgesLayer = document.getElementById('edgesLayer');
+const nodesLayer = document.getElementById('nodesLayer');
+const edgeEls = {};   // key -> line element
+const nodeEls = {};   // id -> {group, ring, body, label, sub}
+const nodePos = {};   // id -> {x,y}
+
+function nodeRadiusFor(agent) {
+  return clamp(16 + Math.sqrt(totalResources(agent)) * 1.6, 16, 46);
+}
+
+function trustColor(t) {
+  const cy = [95, 227, 204], rs = [255, 111, 129], mid = [139, 144, 179];
+  if (t >= 0) {
+    const f = clamp(t / 100, 0, 1);
+    const c = mid.map((m, i) => Math.round(m + (cy[i] - m) * f));
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  } else {
+    const f = clamp(-t / 100, 0, 1);
+    const c = mid.map((m, i) => Math.round(m + (rs[i] - m) * f));
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  }
+}
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+function buildGraph() {
+  edgesLayer.innerHTML = '';
+  nodesLayer.innerHTML = '';
+  for (const key in edgeEls) delete edgeEls[key];
+  for (const key in nodeEls) delete nodeEls[key];
+  for (const key in nodePos) delete nodePos[key];
+
+  for (const agent of state.agents) {
+    nodePos[agent.id] = {
+      x: CENTER_X + RADIUS * Math.cos(agent.angle - Math.PI / 2),
+      y: CENTER_Y + RADIUS * Math.sin(agent.angle - Math.PI / 2),
+    };
+  }
+
+  for (let i = 0; i < state.agents.length; i++) {
+    for (let j = i + 1; j < state.agents.length; j++) {
+      const a = state.agents[i], b = state.agents[j];
+      const line = svgEl('line', {
+        class: 'edge', x1: nodePos[a.id].x, y1: nodePos[a.id].y, x2: nodePos[b.id].x, y2: nodePos[b.id].y,
+        stroke: trustColor(0), 'stroke-width': 1.4, opacity: 0.35,
+      });
+      edgesLayer.appendChild(line);
+      edgeEls[pairKey(a.id, b.id)] = line;
+    }
+  }
+
+  for (const agent of state.agents) {
+    const { x, y } = nodePos[agent.id];
+    const g = svgEl('g', { class: 'node' });
+    const ring = svgEl('circle', { class: 'node-ring', cx: x, cy: y, r: nodeRadiusFor(agent), stroke: PERSONALITY_HEX[agent.personality] });
+    const body = svgEl('circle', { class: 'node-body', cx: x, cy: y, r: nodeRadiusFor(agent) - 3 });
+    const label = svgEl('text', { class: 'node-label', x, y: y + 4 });
+    label.textContent = agent.name[0];
+    const sub = svgEl('text', { class: 'node-sub', x, y: y + nodeRadiusFor(agent) + 13 });
+    sub.textContent = agent.name;
+    const title = svgEl('title', {});
+    g.appendChild(ring); g.appendChild(body); g.appendChild(label); g.appendChild(sub); g.appendChild(title);
+    nodesLayer.appendChild(g);
+    nodeEls[agent.id] = { group: g, ring, body, label, sub, title };
+  }
+}
+
+function updateGraph() {
+  for (let i = 0; i < state.agents.length; i++) {
+    for (let j = i + 1; j < state.agents.length; j++) {
+      const a = state.agents[i], b = state.agents[j];
+      const key = pairKey(a.id, b.id);
+      const line = edgeEls[key];
+      const t = getTrust(state, a.id, b.id);
+      const allied = isAllied(state, a.id, b.id);
+      if (allied) {
+        line.setAttribute('class', line.classList.contains('pulsing') ? 'edge alliance-edge pulsing' : 'edge alliance-edge');
+      } else {
+        line.setAttribute('class', line.classList.contains('pulsing') ? 'edge pulsing' : 'edge');
+        line.setAttribute('stroke', trustColor(t));
+        line.setAttribute('stroke-width', 1.2 + Math.abs(t) / 35);
+        line.setAttribute('opacity', clamp(0.15 + Math.abs(t) / 130, 0.15, 0.95));
+      }
+    }
+  }
+  for (const agent of state.agents) {
+    const r = nodeRadiusFor(agent);
+    const els = nodeEls[agent.id];
+    els.ring.setAttribute('r', r);
+    els.body.setAttribute('r', r - 3);
+    els.sub.setAttribute('y', nodePos[agent.id].y + r + 13);
+    els.title.textContent = `${agent.name} — ${agent.personality}\nGold ${agent.resources.gold} · Food ${agent.resources.food} · Tech ${agent.resources.tech}`;
+    els.group.classList.toggle('starving', agent.resources.food < 8);
+  }
+}
+
+function pulseEdge(idA, idB, type) {
+  const key = pairKey(idA, idB);
+  const line = edgeEls[key];
+  if (!line) return;
+  const colorVar = { trade: 'var(--trust-cyan)', alliance: 'var(--alliance-violet)', betrayal: 'var(--danger-rose)', raid: 'var(--conflict-amber)', 'raid-failed': 'var(--conflict-amber-dim)', broker: 'var(--alliance-violet)', refusal: 'var(--mist-700)' }[type] || 'var(--mist-300)';
+  line.style.color = colorVar;
+  line.classList.add('pulsing');
+  setTimeout(() => line.classList.remove('pulsing'), 760);
+}
+
+/* ---------- Roster ---------- */
+const rosterList = document.getElementById('rosterList');
+const rosterEls = {};
+
+function buildRoster() {
+  rosterList.innerHTML = '';
+  for (const agent of state.agents) {
+    const card = document.createElement('div');
+    card.className = 'agent-card';
+    card.innerHTML = `
+      <div class="agent-card-top">
+        <span class="agent-name"><span class="agent-dot" style="background:${PERSONALITY_HEX[agent.personality]}"></span>${agent.name}</span>
+        <span class="agent-badge">${agent.personality}</span>
+      </div>
+      <div class="bars">
+        <div class="bar-row">Au<div class="bar-track"><div class="bar-fill gold" id="bar-gold-${agent.id}" style="width:0%"></div></div><span class="bar-val" id="val-gold-${agent.id}">0</span></div>
+        <div class="bar-row">Fd<div class="bar-track"><div class="bar-fill food" id="bar-food-${agent.id}" style="width:0%"></div></div><span class="bar-val" id="val-food-${agent.id}">0</span></div>
+        <div class="bar-row">Tc<div class="bar-track"><div class="bar-fill tech" id="bar-tech-${agent.id}" style="width:0%"></div></div><span class="bar-val" id="val-tech-${agent.id}">0</span></div>
+      </div>
+    `;
+    rosterList.appendChild(card);
+  }
+}
+
+function updateRoster() {
+  for (const agent of state.agents) {
+    for (const r of RESOURCES) {
+      const pct = clamp((agent.resources[r] / 120) * 100, 2, 100);
+      document.getElementById(`bar-${r}-${agent.id}`).style.width = pct + '%';
+      document.getElementById(`val-${r}-${agent.id}`).textContent = agent.resources[r];
+    }
+  }
+}
+
+/* ---------- Event log ---------- */
+const logList = document.getElementById('logList');
+function renderLog() {
+  if (state.log.length === 0) { logList.innerHTML = '<li class="empty-log">The society hasn&#39;t done anything yet. Press Play.</li>'; return; }
+  logList.innerHTML = state.log.slice(0, 40).map(entry => {
+    const fresh = entry.tick === state.tick ? ' fresh' : '';
+    return `<li class="log-item ${entry.type}${fresh}"><span class="tick-tag">#${entry.tick}</span>${escapeHtml(entry.text)}</li>`;
+  }).join('');
+}
+function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ---------- Stats + tick readout ---------- */
+function updateStats() {
+  document.getElementById('tickNum').textContent = state.tick;
+  document.getElementById('crisisFlag').innerHTML = state.crisisTicksRemaining > 0 ? `<span class="crisis-flag">CRISIS ${state.crisisTicksRemaining}t</span>` : '';
+  document.getElementById('statTrades').textContent = state.stats.trades;
+  document.getElementById('statAlliances').textContent = state.alliances.size;
+  document.getElementById('statBetrayals').textContent = state.stats.betrayals;
+  document.getElementById('statRaids').textContent = state.stats.raids;
+  document.getElementById('statBrokered').textContent = state.stats.brokered;
+  document.getElementById('agentCountLabel').textContent = '';
+}
+
+/* ---------- Main loop ---------- */
+function runTick() {
+  const prevTick = state.tick;
+  tick(state);
+  updateGraph();
+  updateRoster();
+  renderLog();
+  updateStats();
+  // pulse edges for this tick's events
+  for (const entry of state.log) {
+    if (entry.tick !== state.tick) break;
+    if (entry.ids && entry.ids.length >= 2) pulseEdge(entry.ids[0], entry.ids[1], entry.type);
+  }
+}
+
+function setPlaying(p) {
+  playing = p;
+  const btn = document.getElementById('playPauseBtn');
+  if (playing) {
+    btn.textContent = '⏸ Pause';
+    btn.classList.remove('primary');
+    intervalHandle = setInterval(runTick, 1000 / ticksPerSecond);
+  } else {
+    btn.textContent = '▶ Play';
+    btn.classList.add('primary');
+    if (intervalHandle) clearInterval(intervalHandle);
+    intervalHandle = null;
+  }
+}
+
+document.getElementById('playPauseBtn').addEventListener('click', () => setPlaying(!playing));
+document.getElementById('stepBtn').addEventListener('click', () => { if (playing) setPlaying(false); runTick(); });
+document.getElementById('resetBtn').addEventListener('click', () => {
+  setPlaying(false);
+  state = createInitialState(7);
+  buildGraph(); buildRoster(); updateGraph(); updateRoster(); renderLog(); updateStats();
+});
+document.getElementById('speedSlider').addEventListener('input', (e) => {
+  ticksPerSecond = Number(e.target.value);
+  document.getElementById('speedLabel').textContent = ticksPerSecond + '×';
+  if (playing) { setPlaying(false); setPlaying(true); }
+});
+document.getElementById('crisisBtn').addEventListener('click', () => {
+  injectCrisis(state);
+  updateStats(); renderLog();
+  const shock = document.getElementById('crisisShock');
+  shock.classList.remove('active'); void shock.offsetWidth; shock.classList.add('active');
+});
+document.getElementById('reportBtn').addEventListener('click', () => {
+  setPlaying(false);
+  const report = generateReport(state);
+  document.getElementById('modalTick').textContent = `AS OF TICK ${report.tick}`;
+  document.getElementById('factionList').innerHTML = report.factions.map(f => `
+    <div class="faction-block">
+      <div class="f-label">${f.label}</div>
+      <div class="chip-row">${f.members.map(m => `<span class="chip">${escapeHtml(m)}</span>`).join('')}</div>
+    </div>`).join('');
+  document.getElementById('rWealthiest').textContent = report.wealthiest;
+  document.getElementById('rTrusted').textContent = report.mostTrusted;
+  document.getElementById('rDistrusted').textContent = report.leastTrusted;
+  const totalEvents = report.stats.trades + report.stats.betrayals + report.stats.alliances + report.stats.raids + report.stats.brokered;
+  document.getElementById('rEvents').textContent = totalEvents;
+  document.getElementById('modalOverlay').classList.add('open');
+});
+document.getElementById('modalClose').addEventListener('click', () => document.getElementById('modalOverlay').classList.remove('open'));
+document.getElementById('modalOverlay').addEventListener('click', (e) => { if (e.target.id === 'modalOverlay') e.currentTarget.classList.remove('open'); });
+
+/* ---------- Init ---------- */
+buildGraph();
+buildRoster();
+updateGraph();
+updateRoster();
+renderLog();
+updateStats();
+</script>
+</body>
+</html>
